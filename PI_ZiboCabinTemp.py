@@ -78,8 +78,8 @@ def check_temperature(temp: float) -> str:
 class Dref(object):
 
     def __init__(self) -> None:
-        self._cabin_temp_dref = None
-        self._leg_started_dref = None
+        self._cabin_temp_dref = xp.findDataRef('laminar/B738/cabin_temp')
+        self._leg_started_dref = xp.findDataRef('laminar/b738/fmodpack/leg_started')
 
     @property
     def cabin_temp(self) -> float | bool:
@@ -96,10 +96,6 @@ class Dref(object):
         except SystemError:
             return False
 
-    def load_drefs(self) -> None:
-        self._cabin_temp_dref = xp.findDataRef('laminar/B738/cabin_temp')
-        self._leg_started_dref = xp.findDataRef('laminar/b738/fmodpack/leg_started')
-
 
 class PythonInterface(object):
 
@@ -109,7 +105,7 @@ class PythonInterface(object):
         self.plugin_desc = plugin_desc
 
         # Dref init
-        self.dref = Dref()
+        self.dref = False
 
         # app init
         self.latest_request_time = None
@@ -122,9 +118,19 @@ class PythonInterface(object):
         self.main_menu = self.create_main_menu()
 
     @property
-    def zibo_loaded(self) -> bool:
+    def aircraft_path(self) -> str:
         _, acf_path = xp.getNthAircraftModel(0)
-        return 'B737-800X' in acf_path
+        return acf_path
+
+    @property
+    def zibo_loaded(self) -> bool:
+        loaded = 'B737-800X' in self.aircraft_path
+        # load drefs if needed
+        if loaded and not self.dref:
+            self.dref = Dref()
+        elif not loaded and self.dref:
+            self.dref = False
+        return loaded
 
     @property
     def time_to_check(self) -> bool:
@@ -182,14 +188,14 @@ class PythonInterface(object):
         b = bottom + MARGIN
         l = left + MARGIN
         r = right - MARGIN
-        self.cabin_cap = xp.createWidget(l, t, l + 130, t - LINE, 1, 'cabin temperature (°C):', 0,
+        self.cabin_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'cabin temperature (°C):', 0,
                                          self.settings_widget, xp.WidgetClass_Caption)
-        self.cabin_temp_widget = xp.createWidget(l + 145, t, r, t - LINE, 1, '', 0,
+        self.cabin_temp_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
                                                  self.settings_widget, xp.WidgetClass_Caption)
         t -= LINE
-        self.comfort_cap = xp.createWidget(l, t, l + 130, t - LINE, 1, 'comfort temperature (°C):', 0,
+        self.comfort_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'comfort temperature (°C):', 0,
                                            self.settings_widget, xp.WidgetClass_Caption)
-        self.comfort_temp_widget = xp.createWidget(l + 145, t, r, t - LINE, 1, '', 0,
+        self.comfort_temp_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
                                                    self.settings_widget, xp.WidgetClass_Caption)
 
         # Register our widget handler
@@ -201,8 +207,6 @@ class PythonInterface(object):
             xp.setWidgetDescriptor(self.info_line, self.message)
 
         if self.zibo_loaded:
-            if not self.dref.cabin_temp:
-                self.dref.load_drefs()
             if xp.getWidgetDescriptor(self.cabin_temp_widget) != str(self.dref.cabin_temp):
                 xp.setWidgetDescriptor(self.cabin_temp_widget, str(self.dref.cabin_temp))
             if xp.getWidgetDescriptor(self.comfort_temp_widget) != str(COMFORT_TEMP):
