@@ -21,7 +21,7 @@ except ImportError:
 
 
 # Version
-__VERSION__ = 'v0.1-beta'
+__VERSION__ = 'v1.0-rc.1'
 
 # Plugin parameters required from XPPython3
 plugin_name = 'ZiboCabinTemp'
