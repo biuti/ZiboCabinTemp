@@ -2,7 +2,7 @@
 Simple Python script to get a feedback about cabin temperature in Zibo B737-800 modified.
 
 ## Features
-- As soon as boarding starts, flight assistant will start to report passengers' complains about cabin temperature if it's far from comfort temperature of 21°C
+- As soon as boarding starts, flight assistant will start to report passengers' complains about cabin temperature if it's far from comfort temperature selected in settings (default 21°C)
 
 ## Requirements
 - MacOS 10.14, Windows 7 and Linux kernel 4.0 and above
