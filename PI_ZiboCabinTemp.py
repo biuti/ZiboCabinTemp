@@ -9,9 +9,11 @@ This source code is licensed under the BSD-style license found in the
 LICENSE file in the root directory of this source tree. 
 """
 
-from pathlib import Path
+import json
+
 from datetime import datetime, timedelta
 from time import perf_counter
+from pathlib import Path
 
 try:
     from XPPython3 import xp
@@ -21,7 +23,7 @@ except ImportError:
 
 
 # Version
-__VERSION__ = 'v1.0-rc.1'
+__VERSION__ = 'v1.1'
 
 # Plugin parameters required from XPPython3
 plugin_name = 'ZiboCabinTemp'
@@ -30,8 +32,8 @@ plugin_desc = 'Simple Python script to get a feedback about Zibo cabin temperatu
 
 # Other parameters
 DEFAULT_SCHEDULE = 10  # positive numbers are seconds, 0 disabled, negative numbers are cycles
-DELTA_TIME = 3  # how often a message can repeat, minutes
-COMFORT_TEMP = 21  # degrees C
+DEFAULT_DELTA_TIME = 5  # how often a message can repeat, minutes
+DEFAULT_COMFORT_TEMP = 21  # degrees C
 DELTA_COMFORT = 2  # degrees C
 DELTA_REQUEST = 4  # degrees C
 DELTA_LIMIT = 8  # degrees C
@@ -51,18 +53,18 @@ except NameError:
 
 LINE = FONT_HEIGHT + 4
 WIDTH = 280
-HEIGHT = 100
+HEIGHT = 200
 HEIGHT_MIN = 100
 MARGIN = 10
 HEADER = 12
 
 
 def time_passed(event: datetime) -> bool:
-    return datetime.now() - event > timedelta(minutes=DELTA_TIME)
+    return datetime.now() - event > timedelta(minutes=DEFAULT_DELTA_TIME)
 
 
-def check_temperature(temp: float) -> str:
-    delta = temp - COMFORT_TEMP
+def check_temperature(temp: float, comfort_temp: float) -> str:
+    delta = temp - comfort_temp
     if delta < - DELTA_LIMIT:
         return VERY_COLD_MESSAGE
     elif delta <= - DELTA_REQUEST:
@@ -104,11 +106,18 @@ class PythonInterface(object):
         self.plugin_sig = plugin_sig
         self.plugin_desc = plugin_desc
 
+        # folders init
+        self.prefs = Path(xp.getPrefsPath()).parent
+
         # Dref init
         self.dref = False
 
         # app init
         self.latest_request_time = None
+        self.config_file = Path(self.prefs, 'zibocabintemp.prf')
+        self.enabled = True
+        self.comfort_temp = DEFAULT_COMFORT_TEMP
+        self.load_settings()
 
         # widget
         self.settings_widget = None
@@ -138,13 +147,13 @@ class PythonInterface(object):
 
     def show_info_widget(self) -> None:
         if not xp.isWidgetVisible(self.info_widget):
-            for widget in (self.cabin_cap, self.cabin_temp_widget, self.comfort_cap, self.comfort_temp_widget):
+            for widget in (self.cabin_cap, self.cabin_temp_widget, self.comfort_delta_cap, self.comfort_delta_widget):
                 xp.showWidget(widget)
             xp.showWidget(self.info_widget)
 
     def hide_info_widget(self) -> None:
         if xp.isWidgetVisible(self.info_widget):
-            for widget in (self.cabin_cap, self.cabin_temp_widget, self.comfort_cap, self.comfort_temp_widget):
+            for widget in (self.cabin_cap, self.cabin_temp_widget, self.comfort_delta_cap, self.comfort_delta_widget):
                 xp.hideWidget(widget)
             xp.hideWidget(self.info_widget)
 
@@ -180,23 +189,51 @@ class PythonInterface(object):
         xp.setWidgetProperty(self.info_line, xp.Property_CaptionLit, 1)
 
         t -= (LINE + MARGIN)
+        b = t - 2*LINE - 3*MARGIN
         # Temp info sub window
-        self.info_widget = xp.createWidget(left, t, right, bottom, 1, "", 0, self.settings_widget,
+        self.info_widget = xp.createWidget(left, t, right, b, 1, "", 0, self.settings_widget,
                                            xp.WidgetClass_SubWindow)
         xp.setWidgetProperty(self.info_widget, xp.Property_SubWindowType, xp.SubWindowStyle_SubWindow)
         t -= MARGIN
-        b = bottom + MARGIN
         l = left + MARGIN
         r = right - MARGIN
         self.cabin_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'cabin temperature (°C):', 0,
                                          self.settings_widget, xp.WidgetClass_Caption)
         self.cabin_temp_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
                                                  self.settings_widget, xp.WidgetClass_Caption)
-        t -= LINE
-        self.comfort_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'comfort temperature (°C):', 0,
-                                           self.settings_widget, xp.WidgetClass_Caption)
-        self.comfort_temp_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
-                                                   self.settings_widget, xp.WidgetClass_Caption)
+
+        t -= (LINE + MARGIN)
+        self.comfort_delta_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'comfort delta (°C):', 0,
+                                                 self.settings_widget, xp.WidgetClass_Caption)
+        self.comfort_delta_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
+                                                    self.settings_widget, xp.WidgetClass_Caption)
+
+        t = b - MARGIN
+        cap = xp.createWidget(left, t, left + 160, t - LINE, 1, 'OPTIONS', 0,
+                              self.settings_widget, xp.WidgetClass_Caption)
+        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
+        t -= (LINE + MARGIN)
+        cap = xp.createWidget(left, t, left + 160, t - LINE, 1, 'FA calls:', 0,
+                              self.settings_widget, xp.WidgetClass_Caption)
+        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
+        self.enable_check = xp.createWidget(left + 225, t, right, t - LINE, 1, '', 0,
+                                            self.settings_widget, xp.WidgetClass_Button)
+        xp.setWidgetProperty(self.enable_check, xp.Property_ButtonState, xp.RadioButton)
+        xp.setWidgetProperty(self.enable_check, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
+        xp.setWidgetProperty(self.enable_check, xp.Property_ButtonState, self.enabled)
+
+        t -= (LINE + MARGIN)
+        cap = xp.createWidget(left, t, left + 175, t - LINE, 1, 'comfort temperature (°C):', 0,
+                              self.settings_widget, xp.WidgetClass_Caption)
+        xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
+        self.comfort_t_input = xp.createWidget(left + 175, t, left + 210, t - LINE, 1, '', 0,
+                                               self.settings_widget, xp.WidgetClass_TextField)
+        xp.setWidgetProperty(self.comfort_t_input, xp.Property_MaxCharacters, 2)
+        xp.setWidgetProperty(self.comfort_t_input, xp.Property_TextFieldType, xp.TextTranslucent)
+        xp.setWidgetDescriptor(self.comfort_t_input, str(self.comfort_temp))
+
+        self.comfort_t_button = xp.createWidget(left + 225, t, right, t - LINE, 1, "set", 0, 
+                                                self.settings_widget, xp.WidgetClass_Button)
 
         # Register our widget handler
         self.settingsWidgetHandlerCB = self.settingsWidgetHandler
@@ -207,10 +244,12 @@ class PythonInterface(object):
             xp.setWidgetDescriptor(self.info_line, self.message)
 
         if self.zibo_loaded:
-            if xp.getWidgetDescriptor(self.cabin_temp_widget) != str(self.dref.cabin_temp):
-                xp.setWidgetDescriptor(self.cabin_temp_widget, str(self.dref.cabin_temp))
-            if xp.getWidgetDescriptor(self.comfort_temp_widget) != str(COMFORT_TEMP):
-                xp.setWidgetDescriptor(self.comfort_temp_widget, str(COMFORT_TEMP))
+            temp = str(self.dref.cabin_temp)
+            if xp.getWidgetDescriptor(self.cabin_temp_widget) != temp:
+                xp.setWidgetDescriptor(self.cabin_temp_widget, temp)
+            delta = str(round(self.dref.cabin_temp - self.comfort_temp, 1))
+            if xp.getWidgetDescriptor(self.comfort_delta_widget) != delta:
+                xp.setWidgetDescriptor(self.comfort_delta_widget, delta)
             self.show_info_widget()
         else:
             self.hide_info_widget()
@@ -220,7 +259,39 @@ class PythonInterface(object):
                 xp.hideWidget(self.settings_widget)
                 return 1
 
+        if inMessage == xp.Msg_PushButtonPressed and inParam1 == self.comfort_t_button:
+            try:
+                self.comfort_temp = int(xp.getWidgetDescriptor(self.comfort_t_input).strip())
+            except ValueError as e:
+                xp.log(f"Error in comfort temp input: {e}")
+                xp.setWidgetDescriptor(self.comfort_t_input, str(self.comfort_temp))
+            xp.loseKeyboardFocus(self.comfort_t_input)
+            return 1
+
+        if inMessage == xp.Msg_ButtonStateChanged and inParam1 == self.enable_check:
+            self.enabled = bool(xp.getWidgetProperty(self.enable_check, xp.Property_ButtonState))
+            return 1
+
         return 0
+
+    def load_settings(self) -> bool:
+        if self.config_file.is_file():
+            # read file
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                data = f.read()
+            # parse file
+            settings = json.loads(data)
+            if settings:
+                self.enabled = settings.get('settings').get('enabled')
+                self.comfort_temp = settings.get('settings').get('comfort_temp')
+        else:
+            # keep default values
+            return False
+
+    def save_settings(self) -> None:
+        settings = {'settings': {'enabled': self.enabled, 'comfort_temp': self.comfort_temp}}
+        with open(self.config_file, 'w', encoding='utf-8') as f:
+            json.dump(settings, f)
 
     def loopCallback(self, lastCall, elapsedTime, counter, refCon):
         """Loop Callback"""
@@ -229,16 +300,22 @@ class PythonInterface(object):
         if self.zibo_loaded:
             cabin_temp = self.dref.cabin_temp
             if self.dref.pax_onboard:
+                message = check_temperature(cabin_temp, self.comfort_temp)
                 if not self.latest_request_time:
                     # boarding just started
                     self.latest_request_time = t
                     self.message = "Boarding started ..."
+                    if self.enabled:
+                        comm = "we are starting boarding now"
+                        if message:
+                            comm += ". Please, make sure the cabin is conditioned"
+                            xp.speakString(f"Captain, {comm}")
                 elif self.time_to_check:
-                    message = check_temperature(cabin_temp)
                     self.latest_request_time = t
                     if message:
                         self.message = message
-                        xp.speakString(f"Captain, {message}")
+                        if self.enabled:
+                            xp.speakString(f"Captain, {message}")
             elif self.latest_request_time:
                 # reset for turnaround
                 self.latest_request_time = None
@@ -266,6 +343,7 @@ class PythonInterface(object):
     def XPluginStop(self):
         # Called once by X-Plane on quit (or when plugins are exiting as part of reload)
         xp.destroyFlightLoop(self.loop_id)
+        self.save_settings()
         xp.destroyWidget(self.settings_widget)
         xp.destroyMenu(self.main_menu)
-        xp.log("flightloop, widget, menu destroyed, exiting ...")
+        xp.log("settings saved, flightloop, widget, menu destroyed, exiting ...")
