@@ -195,63 +195,91 @@ class PythonInterface(object):
         left, top, right, bottom = x + MARGIN, y - HEADER - MARGIN, x + WIDTH - MARGIN, y - HEIGHT + MARGIN
 
         # main windows
-        self.settings_widget = xp.createWidget(x, y, x+WIDTH, y-HEIGHT, 1, f"ZiboCabinTemp {__VERSION__}", 1,
-                                               0, xp.WidgetClass_MainWindow)
+        self.settings_widget = xp.createWidget(
+            x, y, x+WIDTH, y-HEIGHT,
+            1, f"ZiboCabinTemp {__VERSION__}", 1, 0, xp.WidgetClass_MainWindow
+        )
         xp.setWidgetProperty(self.settings_widget, xp.Property_MainWindowHasCloseBoxes, 1)
         xp.setWidgetProperty(self.settings_widget, xp.Property_MainWindowType, xp.MainWindowStyle_Translucent)
 
         t = top
         # info message line
-        self.info_line = xp.createWidget(left, top, right, top - LINE, 1, "", 0,
-                                         self.settings_widget, xp.WidgetClass_Caption)
+        self.info_line = xp.createWidget(
+            left, top, right, top - LINE,
+            1, "", 0, self.settings_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(self.info_line, xp.Property_CaptionLit, 1)
 
         t -= (LINE + MARGIN)
         b = t - 2*LINE - 3*MARGIN
         # Temp info sub window
-        self.info_widget = xp.createWidget(left, t, right, b, 1, "", 0, self.settings_widget,
-                                           xp.WidgetClass_SubWindow)
+        self.info_widget = xp.createWidget(
+            left, t, right, b,
+            1, "", 0, self.settings_widget, xp.WidgetClass_SubWindow
+        )
         xp.setWidgetProperty(self.info_widget, xp.Property_SubWindowType, xp.SubWindowStyle_SubWindow)
         t -= MARGIN
         l = left + MARGIN
         r = right - MARGIN
-        self.cabin_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'cabin temperature (°C):', 0,
-                                         self.settings_widget, xp.WidgetClass_Caption)
-        self.cabin_temp_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
-                                                 self.settings_widget, xp.WidgetClass_Caption)
+        self.cabin_cap = xp.createWidget(
+            l, t, l + 160, t - LINE,
+            1, 'cabin temperature (°C):', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
+        # xp.setWidgetProperty(self.cabin_cap, xp.Property_CaptionLit, 1)
+        self.cabin_temp_widget = xp.createWidget(
+            l + 175, t, r, t - LINE,
+            1, '', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
+        # xp.setWidgetProperty(self.cabin_temp_widget, xp.Property_CaptionLit, 1)
 
         t -= (LINE + MARGIN)
-        self.comfort_delta_cap = xp.createWidget(l, t, l + 160, t - LINE, 1, 'comfort delta (°C):', 0,
-                                                 self.settings_widget, xp.WidgetClass_Caption)
-        self.comfort_delta_widget = xp.createWidget(l + 175, t, r, t - LINE, 1, '', 0,
-                                                    self.settings_widget, xp.WidgetClass_Caption)
+        self.comfort_delta_cap = xp.createWidget(
+            l, t, l + 160, t - LINE,
+            1, 'comfort delta (°C):', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
+        self.comfort_delta_widget = xp.createWidget(
+            l + 175, t, r, t - LINE,
+            1, '', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
 
         t = b - MARGIN
-        cap = xp.createWidget(left, t, left + 160, t - LINE, 1, 'OPTIONS', 0,
-                              self.settings_widget, xp.WidgetClass_Caption)
+        cap = xp.createWidget(
+            left, t, left + 160, t - LINE,
+            1, 'OPTIONS', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
         t -= (LINE + MARGIN)
-        cap = xp.createWidget(left, t, left + 160, t - LINE, 1, 'FA calls:', 0,
-                              self.settings_widget, xp.WidgetClass_Caption)
+        cap = xp.createWidget(
+            left, t, left + 160, t - LINE,
+            1, 'FA calls:', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
-        self.enable_check = xp.createWidget(left + 225, t, right, t - LINE, 1, '', 0,
-                                            self.settings_widget, xp.WidgetClass_Button)
+        self.enable_check = xp.createWidget(
+            left + 225, t, right, t - LINE,
+            1, '', 0, self.settings_widget, xp.WidgetClass_Button
+        )
         xp.setWidgetProperty(self.enable_check, xp.Property_ButtonState, xp.RadioButton)
         xp.setWidgetProperty(self.enable_check, xp.Property_ButtonBehavior, xp.ButtonBehaviorCheckBox)
         xp.setWidgetProperty(self.enable_check, xp.Property_ButtonState, self.enabled)
 
         t -= (LINE + MARGIN)
-        cap = xp.createWidget(left, t, left + 175, t - LINE, 1, 'comfort temperature (°C):', 0,
-                              self.settings_widget, xp.WidgetClass_Caption)
+        cap = xp.createWidget(
+            left, t, left + 175, t - LINE,
+            1, 'comfort temperature (°C):', 0, self.settings_widget, xp.WidgetClass_Caption
+        )
         xp.setWidgetProperty(cap, xp.Property_CaptionLit, 1)
-        self.comfort_t_input = xp.createWidget(left + 175, t, left + 210, t - LINE, 1, '', 0,
-                                               self.settings_widget, xp.WidgetClass_TextField)
+        self.comfort_t_input = xp.createWidget(
+            left + 175, t, left + 210, t - LINE,
+            1, '', 0, self.settings_widget, xp.WidgetClass_TextField
+        )
         xp.setWidgetProperty(self.comfort_t_input, xp.Property_MaxCharacters, 2)
         xp.setWidgetProperty(self.comfort_t_input, xp.Property_TextFieldType, xp.TextTranslucent)
         xp.setWidgetDescriptor(self.comfort_t_input, str(self.comfort_temp))
 
-        self.comfort_t_button = xp.createWidget(left + 225, t, right, t - LINE, 1, "set", 0, 
-                                                self.settings_widget, xp.WidgetClass_Button)
+        self.comfort_t_button = xp.createWidget(
+            left + 225, t, right, t - LINE,
+            1, "set", 0, self.settings_widget, xp.WidgetClass_Button
+        )
 
         # Register our widget handler
         self.settingsWidgetHandlerCB = self.settingsWidgetHandler
