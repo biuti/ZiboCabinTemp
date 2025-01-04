@@ -44,6 +44,12 @@ TOO_HOT_MESSAGE = "could we cool down the cabin a bit please?"
 TOO_COLD_MESSAGE = "passengers are asking for a cozier temperature"
 VERY_COLD_MESSAGE = "we are freezing in the cabin"
 
+# Aircrafts
+AIRCRAFTS = [
+    ('Zibo', 'B737-800X'),
+    ('LevelUp', 'LevelUp')
+]
+
 # widget parameters
 try:
     FONT = xp.Font_Proportional
@@ -126,20 +132,18 @@ class PythonInterface(object):
         # create main menu and widget
         self.main_menu = self.create_main_menu()
 
+        self.aircraft = False
+        self.acf_path = None
+
     @property
     def aircraft_path(self) -> str:
         _, acf_path = xp.getNthAircraftModel(0)
         return acf_path
 
     @property
-    def zibo_loaded(self) -> bool:
-        loaded = 'B737-800X' in self.aircraft_path
-        # load drefs if needed
-        if loaded and not self.dref:
-            self.dref = Dref()
-        elif not loaded and self.dref:
-            self.dref = False
-        return loaded
+    def aircraft_detected(self) -> bool:
+        self.check_aircraft()
+        return bool(self.aircraft)
 
     @property
     def time_to_check(self) -> bool:
@@ -156,6 +160,20 @@ class PythonInterface(object):
             for widget in (self.cabin_cap, self.cabin_temp_widget, self.comfort_delta_cap, self.comfort_delta_widget):
                 xp.hideWidget(widget)
             xp.hideWidget(self.info_widget)
+
+    def check_aircraft(self) -> None:
+        _, acf_path = xp.getNthAircraftModel(0)
+        if acf_path != self.acf_path:
+            self.acf_path = acf_path
+            acf = next((p[0] for p in AIRCRAFTS if p[1] in self.acf_path), None)
+            if acf:
+                self.aircraft = acf
+                # load drefs if needed
+                if not self.dref:
+                    self.dref = Dref()
+            else:
+                self.aircraft = False
+                self.dref = False
 
     def create_main_menu(self):
         # create Menu
@@ -243,7 +261,7 @@ class PythonInterface(object):
         if xp.getWidgetDescriptor(self.info_line) != self.message:
             xp.setWidgetDescriptor(self.info_line, self.message)
 
-        if self.zibo_loaded:
+        if self.aircraft_detected and self.dref:
             temp = str(self.dref.cabin_temp)
             if xp.getWidgetDescriptor(self.cabin_temp_widget) != temp:
                 xp.setWidgetDescriptor(self.cabin_temp_widget, temp)
@@ -297,7 +315,7 @@ class PythonInterface(object):
         """Loop Callback"""
         t = datetime.now()
         start = perf_counter()
-        if self.zibo_loaded:
+        if self.aircraft_detected and self.dref:
             cabin_temp = self.dref.cabin_temp
             if self.dref.pax_onboard:
                 message = check_temperature(cabin_temp, self.comfort_temp)
