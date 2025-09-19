@@ -23,7 +23,7 @@ except ImportError:
 
 
 # Version
-__VERSION__ = 'v1.2-beta.1'
+__VERSION__ = 'v1.2.0'
 
 # Plugin parameters required from XPPython3
 plugin_name = 'ZiboCabinTemp'
@@ -83,7 +83,7 @@ def check_temperature(temp: float, comfort_temp: float) -> str:
         return ''
 
 
-class Dref(object):
+class Dref:
 
     def __init__(self) -> None:
         self._cabin_temp_dref = xp.findDataRef('laminar/B738/cabin_temp')
@@ -105,7 +105,7 @@ class Dref(object):
             return False
 
 
-class PythonInterface(object):
+class PythonInterface:
 
     def __init__(self) -> None:
         self.plugin_name = f"{plugin_name} - {__VERSION__}"
@@ -182,7 +182,7 @@ class PythonInterface(object):
         xp.appendMenuItem(menu, 'Settings', 1)
         return menu
 
-    def main_menu_callback(self, menuRef, menuItem):
+    def main_menu_callback(self, menuRef, menuItem) -> None:
         """Main menu Callback"""
         if menuItem == 1:
             if not self.settings_widget:
@@ -190,7 +190,7 @@ class PythonInterface(object):
             elif not xp.isWidgetVisible(self.settings_widget):
                 xp.showWidget(self.settings_widget)
 
-    def create_settings_widget(self, x: int = 400, y: int = 1000):
+    def create_settings_widget(self, x: int = 400, y: int = 1000) -> None:
 
         left, top, right, bottom = x + MARGIN, y - HEADER - MARGIN, x + WIDTH - MARGIN, y - HEIGHT + MARGIN
 
@@ -285,7 +285,7 @@ class PythonInterface(object):
         self.settingsWidgetHandlerCB = self.settingsWidgetHandler
         xp.addWidgetCallback(self.settings_widget, self.settingsWidgetHandlerCB)
 
-    def settingsWidgetHandler(self, inMessage, inWidget, inParam1, inParam2):
+    def settingsWidgetHandler(self, inMessage, inWidget, inParam1, inParam2) -> int:
         if xp.getWidgetDescriptor(self.info_line) != self.message:
             xp.setWidgetDescriptor(self.info_line, self.message)
 
@@ -339,7 +339,7 @@ class PythonInterface(object):
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(settings, f)
 
-    def loopCallback(self, lastCall, elapsedTime, counter, refCon):
+    def loopCallback(self, lastCall, elapsedTime, counter, refCon) -> int:
         """Loop Callback"""
         t = datetime.now()
         start = perf_counter()
@@ -373,20 +373,20 @@ class PythonInterface(object):
 
         return DEFAULT_SCHEDULE
 
-    def XPluginStart(self):
+    def XPluginStart(self) -> tuple[str, str, str]:
         return self.plugin_name, self.plugin_sig, self.plugin_desc
 
-    def XPluginEnable(self):
+    def XPluginEnable(self) -> int:
         # loopCallback
         self.loop = self.loopCallback
         self.loop_id = xp.createFlightLoop(self.loop, phase=1)
         xp.scheduleFlightLoop(self.loop_id, interval=DEFAULT_SCHEDULE)
         return 1
 
-    def XPluginDisable(self):
+    def XPluginDisable(self) -> None:
         pass
 
-    def XPluginStop(self):
+    def XPluginStop(self) -> None:
         # Called once by X-Plane on quit (or when plugins are exiting as part of reload)
         xp.destroyFlightLoop(self.loop_id)
         self.save_settings()
