@@ -17,6 +17,7 @@ from pathlib import Path
 
 try:
     from XPPython3 import xp
+    from XPPython3.utils.datarefs import find_dataref
 except ImportError:
     print('xp module not found')
     pass
@@ -53,7 +54,7 @@ AIRCRAFTS = [
 # widget parameters
 try:
     FONT = xp.Font_Proportional
-    FONT_WIDTH, FONT_HEIGHT, _ = xp.getFontDimensions(FONT)
+    FONT_WIDTH, FONT_HEIGHT, _ = xp.getFontDimensions(FONT) or (10, 10, 0)
 except NameError:
     FONT_WIDTH, FONT_HEIGHT = 10, 10
 
@@ -86,13 +87,13 @@ def check_temperature(temp: float, comfort_temp: float) -> str:
 class Dref:
 
     def __init__(self) -> None:
-        self._cabin_temp_dref = xp.findDataRef('laminar/B738/cabin_temp')
-        self._leg_started_dref = xp.findDataRef('laminar/b738/fmodpack/leg_started')
+        self._cabin_temp_dref = find_dataref('laminar/B738/cabin_temp')
+        self._leg_started_dref = find_dataref('laminar/b738/fmodpack/leg_started')
 
     @property
     def cabin_temp(self) -> float | bool:
         try:
-            return round(xp.getDataf(self._cabin_temp_dref), 1)
+            return round(self._cabin_temp_dref.value, 1)
         except SystemError as e:
             xp.log(f"ERROR: {e}")
             return False
@@ -100,7 +101,7 @@ class Dref:
     @property
     def pax_onboard(self) -> bool:
         try:
-            return bool(xp.getDatai(self._leg_started_dref))
+            return bool(self._leg_started_dref.value)
         except SystemError:
             return False
 
@@ -147,7 +148,7 @@ class PythonInterface:
 
     @property
     def time_to_check(self) -> bool:
-        return self.latest_request_time and time_passed(self.latest_request_time)
+        return False if self.latest_request_time is None else time_passed(self.latest_request_time)
 
     def show_info_widget(self) -> None:
         if not xp.isWidgetVisible(self.info_widget):
@@ -390,6 +391,8 @@ class PythonInterface:
         # Called once by X-Plane on quit (or when plugins are exiting as part of reload)
         xp.destroyFlightLoop(self.loop_id)
         self.save_settings()
-        xp.destroyWidget(self.settings_widget)
+        # Destroy windows
+        if self.settings_widget:
+            xp.destroyWidget(self.settings_widget, 1)
         xp.destroyMenu(self.main_menu)
         xp.log("settings saved, flightloop, widget, menu destroyed, exiting ...")
