@@ -24,7 +24,19 @@ except ImportError:
 
 
 # Version
-__VERSION__ = 'v2.0'
+
+
+# debug 
+DEBUG = False
+
+def log(msg: str) -> None:
+    xp.log(msg)
+
+def debug(msg: str, tag: str = "DEBUG") -> None:
+    if DEBUG:
+        xp.log(f"[{tag}] {msg}")
+
+
 
 # Plugin parameters required from XPPython3
 plugin_name = 'ZiboCabinTemp'
@@ -95,7 +107,7 @@ class Dref:
         try:
             return round(self._cabin_temp_dref.value, 1)
         except SystemError as e:
-            xp.log(f"ERROR: {e}")
+            log(f"ERROR: {e}")
             return False
 
     @property
@@ -165,15 +177,18 @@ class PythonInterface:
     def check_aircraft(self) -> None:
         _, acf_path = xp.getNthAircraftModel(0)
         if acf_path != self.acf_path:
+            debug(" * detection not needed", "ACF_DET")
             self.acf_path = acf_path
             acf = next((p[0] for p in AIRCRAFTS if p[1] in self.acf_path), None)
             if acf:
                 self.aircraft = acf
+                debug(f" *** aircraft detected: {acf}", "ACF_DET")
                 # load drefs if needed
                 if not self.dref:
                     self.dref = Dref()
             else:
                 self.aircraft = False
+                debug(" *** no useful aircraft detected", "ACF_DET")
                 self.dref = False
 
     def create_main_menu(self):
@@ -226,12 +241,10 @@ class PythonInterface:
             l, t, l + 160, t - LINE,
             1, 'cabin temperature (°C):', 0, self.settings_widget, xp.WidgetClass_Caption
         )
-        # xp.setWidgetProperty(self.cabin_cap, xp.Property_CaptionLit, 1)
         self.cabin_temp_widget = xp.createWidget(
             l + 175, t, r, t - LINE,
             1, '', 0, self.settings_widget, xp.WidgetClass_Caption
         )
-        # xp.setWidgetProperty(self.cabin_temp_widget, xp.Property_CaptionLit, 1)
 
         t -= (LINE + MARGIN)
         self.comfort_delta_cap = xp.createWidget(
@@ -310,7 +323,7 @@ class PythonInterface:
             try:
                 self.comfort_temp = int(xp.getWidgetDescriptor(self.comfort_t_input).strip())
             except ValueError as e:
-                xp.log(f"Error in comfort temp input: {e}")
+                log(f"Error in comfort temp input: {e}")
                 xp.setWidgetDescriptor(self.comfort_t_input, str(self.comfort_temp))
             xp.loseKeyboardFocus(self.comfort_t_input)
             return 1
@@ -344,8 +357,12 @@ class PythonInterface:
         """Loop Callback"""
         t = datetime.now()
         start = perf_counter()
+        debug(f"Aircraft loaded: {self.aircraft_detected}", "LOOP_CB")
         if self.aircraft_detected and self.dref:
             cabin_temp = self.dref.cabin_temp
+            debug(f"Cabin temp: {cabin_temp} C", "LOOP_CB")
+            debug(f"Delta: {cabin_temp - self.comfort_temp} C", "LOOP_CB")
+            debug(f"time to check: {self.time_to_check}", "LOOP_CB")
             if self.dref.pax_onboard:
                 message = check_temperature(cabin_temp, self.comfort_temp)
                 if not self.latest_request_time:
@@ -372,6 +389,8 @@ class PythonInterface:
         else:
             self.message = "Zibo not detected"
 
+        debug(f"message: {self.message}", "LOOP_CB")
+        debug(f" {t.strftime('%H:%M:%S')} - loopCallback() ended after {round(perf_counter() - start, 3)} sec | schedule = {DEFAULT_SCHEDULE} sec", "LOOP_CB")
         return DEFAULT_SCHEDULE
 
     def XPluginStart(self) -> tuple[str, str, str]:
@@ -381,6 +400,7 @@ class PythonInterface:
         # loopCallback
         self.loop = self.loopCallback
         self.loop_id = xp.createFlightLoop(self.loop, phase=1)
+        log(f" - {datetime.now().strftime('%H:%M:%S')} Flightloop created, ID {self.loop_id}")
         xp.scheduleFlightLoop(self.loop_id, interval=DEFAULT_SCHEDULE)
         return 1
 
@@ -395,4 +415,4 @@ class PythonInterface:
         if self.settings_widget:
             xp.destroyWidget(self.settings_widget, 1)
         xp.destroyMenu(self.main_menu)
-        xp.log("settings saved, flightloop, widget, menu destroyed, exiting ...")
+        log("settings saved, flightloop, widget, menu destroyed, exiting ...")
