@@ -24,6 +24,7 @@ except ImportError:
 
 
 # Version
+__VERSION__ = 'v2.1'
 
 
 # debug 
